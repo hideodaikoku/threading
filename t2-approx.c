@@ -1,15 +1,21 @@
-/* Threads with enough work to hopefully have something interesting happen. */
+/** 
+ *	Author: RODNEY VAN METER
+ * 	Modified: HIDEO DAIKOKU
+ * 	Class: OPERATING SYSTEMS SPRING 2019
+ * 	Assignment: Threads
+ */
 
+// Threads with enough work to hopefully have something interesting happen
+#include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
 #include <pthread.h>
 
-#define NUM_THREADS 10
-// #define NUM_THREADS 4
-
-// int gcounter = 100000000; /* 1E8 */
+#define NUM_THREADS 1000
+#define THRESHOLD 1000
 #define GCOUNTER 10000000
 
+// this is the master lock for the thread, used later
 pthread_mutex_t master_lock = PTHREAD_MUTEX_INITIALIZER;
 
 //// Code from Ch. 29 in OSTEP
@@ -23,23 +29,27 @@ typedef struct __counter_t {
 	int threshold; // update frequency
 } counter_t;
 
-// init: record threshold, init locks,
-// global count
-// global lock
-// local count (per cpu)
-// ... and locks
-// update frequency
-void init(counter_t *c, int threshold) {
-	c->threshold = threshold;
-	c->global = 0;
-	pthread_mutex_init(&c->glock, NULL);
+/**
+ * Intializes thee counter structure by locking the global thread, sets the global count to zero
+ * Sets the threshold for printing
+ * intializes all threads to zero
+ * locks all threads
+*/
+void init(counter_t *c) {
+	c->threshold = THRESHOLD; // keeps threshold as defined on the top
+	c->global = 0; // starts global count at 0
+	pthread_mutex_init(&c->glock, NULL); // locks the current thread
 	int i;
 	for (i=0;i<NUM_THREADS;i++){
-		c->local[i] = 0;
-		pthread_mutex_init(&c->llock[i], NULL);
+		c->local[i] = 0; // sets all thread counts to zero 
+		pthread_mutex_init(&c->llock[i], NULL); //locks all threads
 	}
 }
 
+void getCPUCores(){
+	long numofcpus = sysconf(_SC_NPROCESSORS_ONLN);
+	printf("Number of CPU Cores is %lu\n",numofcpus);
+}
 // update: usually, just grab local lock
 // once local count has risen by
 // lock and transfer local values to it
@@ -86,13 +96,14 @@ void *mythread(void *arg) {
 }
 
 int main(int argc, char *argv[]) {
+	getCPUCores();
     pthread_t threads[NUM_THREADS];
     int rc;
     int threadid = 0;
     printf("main: begin\n");
 
-    /* First, initialize our shared counter structure; 1000000 is the "threshold", how often the local values update the global */
-    init(&global_counter, 1000000);
+	// intialize the global counter
+    init(&global_counter);
 
     /* create our threads and fire them off */
     for (int i = 0 ; i < NUM_THREADS ; i++ ) {
